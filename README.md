@@ -1,5 +1,7 @@
 use "cd" command in cmd to change the directory to where your code is , then use this command to run your code 
 
+stremlit run your_file_name.py
+
 it will gives you a URL which will be the web page of your app 
 enjoy using your searching engine 
 
