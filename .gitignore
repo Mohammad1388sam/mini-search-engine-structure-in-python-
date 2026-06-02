@@ -1,218 +1,115 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
 
-# C extensions
-*.so
+import streamlit as st
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
+import time
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+class DeepSearchEngine:
+    def __init__(self, start_urls, max_depth=2):
+        self.start_urls = start_urls
+        self.max_depth = max_depth
+        self.visited_urls = set()
+        self.headers = {'User-Agent': '# YOU CAN USE YOUR OWN AGENT'}
+        self.results = []
 
-# PyInstaller
-#   Usually these files are written by a python script from a template
-#   before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+    def get_domain(self, url):
+        return urlparse(url).netloc
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+    def crawl_and_search(self, url, target_word, current_depth, status_placeholder):
+        if current_depth > self.max_depth or url in self.visited_urls:
+            return
+        
+        self.visited_urls.add(url)
+        status_placeholder.text(f"Scanning [Depth {current_depth}]: {url}")
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
-.pytest_cache/
-cover/
+        try:
+            response = requests.get(url, headers=self.headers, timeout=3)
+            if response.status_code != 200:
+                return
 
-# Translations
-*.mo
-*.pot
+            soup = BeautifulSoup(response.text, 'html.parser')
+            all_text = soup.get_text().lower()
+            count = all_text.count(target_word.lower())
+            
+            if count > 0:
+                title = soup.title.string.strip() if soup.title else url
+                self.results.append({
+                    'title': title,
+                    'url': url,
+                    'matches': count,
+                })
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+            if current_depth < self.max_depth:
+                main_domain = self.get_domain(url)
+                for link_tag in soup.find_all('a', href=True):
+                    href = link_tag['href']
+                    full_url = urljoin(url, href)
+                    if self.get_domain(full_url) == main_domain:
+                        self.crawl_and_search(full_url, target_word, current_depth + 1, status_placeholder)
+        except Exception:
+            pass
 
-# Flask stuff:
-instance/
-.webassets-cache
+    def start_search(self, target_word, status_placeholder):
+        for url in self.start_urls:
+            self.crawl_and_search(url, target_word, 1, status_placeholder)
+        return self.results
 
-# Scrapy stuff:
-.scrapy
+# --- UI Layout ---
+st.set_page_config(page_title="Deep Web Search Engine", page_icon="🔍", layout="centered")
 
-# Sphinx documentation
-docs/_build/
+st.markdown("""
+    <style>
+    .main-title { font-size: 42px; font-weight: 700; color: #1E88E5; text-align: center; margin-bottom: 10px; }
+    .sub-title { font-size: 16px; color: #666; text-align: center; margin-bottom: 30px; }
+    .result-card { padding: 15px; border-radius: 8px; border: 1px solid #E0E0E0; margin-bottom: 15px; background-color: #F8F9FA; }
+    .result-title { font-size: 18px; font-weight: 600; color: #1565C0; text-decoration: none; }
+    .result-url { font-size: 13px; color: #2E7D32; margin-bottom: 5px; }
+    .badge { background-color: #E3F2FD; color: #0D47A1; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 5px; }
+    </style>
+""", unsafe_allow_html=True)
 
-# PyBuilder
-.pybuilder/
-target/
+st.markdown("<div class='main-title'>🔍 Deep Search Engine</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>Crawls into websites and indexes matches instantly</div>", unsafe_allow_html=True)
 
-# Jupyter Notebook
-.ipynb_checkpoints
+target_word = st.text_input("Enter Keyword to Search:", placeholder="e.g., machine learning")
 
-# IPython
-profile_default/
-ipython_config.py
+with st.expander("⚙️ Crawler Settings"):
+    max_depth = st.slider("Crawl Depth:", min_value=1, max_value=3, value=2)
+    urls_input = st.text_area(
+        "Target URLs (One URL per line):", 
+        value="https://www.python.org\nhttps://www.w3schools.com/"
+    )
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-# Pipfile.lock
-
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-# uv.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-# poetry.lock
-# poetry.toml
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-# pdm.lock
-# pdm.toml
-.pdm-python
-.pdm-build/
-
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-# pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# Redis
-*.rdb
-*.aof
-*.pid
-
-# RabbitMQ
-mnesia/
-rabbitmq/
-rabbitmq-data/
-
-# ActiveMQ
-activemq-data/
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#   JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#   and can be added to the global gitignore or merged into this file.  For a more nuclear
-#   option (not recommended) you can uncomment the following to ignore the entire idea folder.
-# .idea/
-
-# Abstra
-#   Abstra is an AI-powered process automation framework.
-#   Ignore directories containing user credentials, local state, and settings.
-#   Learn more at https://abstra.io/docs
-.abstra/
-
-# Visual Studio Code
-#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#   and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#   you could uncomment the following to ignore the entire vscode folder
-# .vscode/
-# Temporary file for partial code execution
-tempCodeRunnerFile.py
-
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-
-# Streamlit
-.streamlit/secrets.toml
+if st.button("Start Deep Search", type="primary"):
+    if not target_word.strip():
+        st.warning("Please enter a keyword first!")
+    elif not urls_input.strip():
+        st.warning("Please enter at least one target URL!")
+    else:
+        target_urls = [url.strip() for url in urls_input.split('\n') if url.strip()]
+        status_box = st.empty()
+        
+        engine = DeepSearchEngine(target_urls, max_depth=max_depth)
+        
+        start_time = time.time()
+        with st.spinner("Crawling the web..."):
+            results = engine.start_search(target_word, status_box)
+        end_time = time.time()
+        
+        status_box.empty()
+        st.success(f"Search completed in {end_time - start_time:.2f} seconds!")
+        
+        if len(results) == 0:
+            st.info("No matches found.")
+        else:
+            for item in results:
+                st.markdown(f"""
+                    <div class="result-card">
+                        <a href="{item['url']}" target="_blank" class="result-title">{item['title']}</a>
+                        <div class="result-url">{item['url']}</div>
+                        <span class="badge">Matches: {item['matches']}</span>
+                        <span class="badge" style="background-color: #E8F5E9; color: #1B5E20;">Depth: {item['depth']}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+#  THE UI IS CREATED BY GEMINI
